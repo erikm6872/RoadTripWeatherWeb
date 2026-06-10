@@ -32,11 +32,123 @@ const departInput = document.getElementById("depart");
   departInput.value = now.toISOString().slice(0, 16);
 })();
 
-// Swap start and destination.
+// ---- Location autocomplete (Photon search-as-you-type) ----
+
+/**
+ * Attach a Google-Maps-style suggestion dropdown to a place input. Picking a
+ * suggestion stores its coordinates on the input (dataset), letting planTrip
+ * skip the geocoding round-trip for that endpoint.
+ */
+function attachAutocomplete(input) {
+  const field = input.closest(".field");
+  const list = document.createElement("div");
+  list.className = "suggestions";
+  list.hidden = true;
+  field.appendChild(list);
+
+  let items = [];
+  let highlighted = -1;
+  let debounceTimer = null;
+  let seq = 0; // discards out-of-order responses
+
+  const close = () => { list.hidden = true; highlighted = -1; };
+
+  const clearPick = () => {
+    delete input.dataset.lat;
+    delete input.dataset.lon;
+    delete input.dataset.display;
+  };
+
+  const select = (i) => {
+    const it = items[i];
+    if (!it) return;
+    const display = it.sublabel ? `${it.label}, ${it.sublabel}` : it.label;
+    input.value = display;
+    input.dataset.lat = it.lat;
+    input.dataset.lon = it.lon;
+    input.dataset.display = display;
+    close();
+  };
+
+  const renderList = () => {
+    list.innerHTML = "";
+    items.forEach((it, i) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "suggestion" + (i === highlighted ? " highlighted" : "");
+      el.innerHTML =
+        `<svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+           <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+           <circle cx="12" cy="10" r="3"/>
+         </svg>
+         <span class="s-text">
+           <span class="s-main">${escapeHtml(it.label)}</span>
+           ${it.sublabel ? `<span class="s-sub">${escapeHtml(it.sublabel)}</span>` : ""}
+         </span>`;
+      // mousedown (not click) so selection wins over the input's blur.
+      el.addEventListener("mousedown", (e) => { e.preventDefault(); select(i); });
+      list.appendChild(el);
+    });
+    list.hidden = !items.length;
+  };
+
+  input.addEventListener("input", () => {
+    clearPick(); // typing invalidates a previously picked suggestion
+    const q = input.value.trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 3) { items = []; close(); return; }
+    debounceTimer = setTimeout(async () => {
+      const mySeq = ++seq;
+      try {
+        // Bias ranking toward the current map view, like Google Maps.
+        const res = await suggestPlaces(q, 5, map.getCenter());
+        if (mySeq !== seq) return; // a newer query is in flight
+        items = res;
+        highlighted = -1;
+        renderList();
+      } catch { /* suggestions are best-effort; typing still works */ }
+    }, 250);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      highlighted = Math.min(highlighted + 1, items.length - 1);
+      renderList();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      highlighted = Math.max(highlighted - 1, 0);
+      renderList();
+    } else if (e.key === "Enter" && highlighted >= 0) {
+      e.preventDefault();
+      select(highlighted);
+    } else if (e.key === "Escape") {
+      close();
+    }
+  });
+
+  // Delay so a mousedown on a suggestion can land first.
+  input.addEventListener("blur", () => setTimeout(close, 120));
+}
+
+attachAutocomplete(document.getElementById("from"));
+attachAutocomplete(document.getElementById("to"));
+
+// Swap start and destination (values and any picked coordinates).
 document.getElementById("swap").addEventListener("click", () => {
   const fromEl = document.getElementById("from");
   const toEl = document.getElementById("to");
   [fromEl.value, toEl.value] = [toEl.value, fromEl.value];
+  for (const key of ["lat", "lon", "display"]) {
+    const tmp = fromEl.dataset[key];
+    if (toEl.dataset[key] !== undefined) fromEl.dataset[key] = toEl.dataset[key];
+    else delete fromEl.dataset[key];
+    if (tmp !== undefined) toEl.dataset[key] = tmp;
+    else delete toEl.dataset[key];
+  }
 });
 
 // Segmented control for the weather-stop interval (backed by #interval).
@@ -57,10 +169,20 @@ const alertEl = document.getElementById("alert");
 const stopsEl = document.getElementById("stops");
 const goBtn = document.getElementById("go");
 
+// A picked suggestion carries coordinates; use them as long as the user
+// hasn't edited the text since picking. Otherwise fall back to geocoding.
+function placeParam(input) {
+  const v = input.value.trim();
+  if (input.dataset.lat && input.dataset.display === v) {
+    return { lat: +input.dataset.lat, lon: +input.dataset.lon, display: v };
+  }
+  return v;
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const from = document.getElementById("from").value.trim();
-  const to = document.getElementById("to").value.trim();
+  const from = placeParam(document.getElementById("from"));
+  const to = placeParam(document.getElementById("to"));
   const interval = document.getElementById("interval").value;
 
   // Convert the local datetime-local value to a UTC ISO string.

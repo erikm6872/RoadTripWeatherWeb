@@ -11,6 +11,7 @@
  */
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
+const PHOTON = "https://photon.komoot.io/api/";
 const OSRM = "https://router.project-osrm.org";
 const OPEN_METEO = "https://api.open-meteo.com/v1/forecast";
 
@@ -129,6 +130,47 @@ async function geocode(query) {
   if (!data.length) throw new ServiceError(`Could not find a location for '${query}'.`);
   const top = data[0];
   return { lat: +top.lat, lon: +top.lon, display: top.display_name || query };
+}
+
+/**
+ * Search-as-you-type place suggestions via Photon (OSM data, built for
+ * autocomplete — Nominatim's policy forbids using it for this). Returns
+ * [{ label, sublabel, lat, lon }], deduplicated, at most `limit` entries.
+ */
+async function suggestPlaces(query, limit = 5, bias = null) {
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(limit * 2), // fetch extra; duplicates get filtered out
+  });
+  if (bias) {
+    // Rank results near this point higher (e.g. the current map view).
+    params.set("lat", bias.lat);
+    params.set("lon", bias.lon);
+  }
+  const data = await getJSON(PHOTON + "?" + params);
+
+  const out = [];
+  const seen = new Set();
+  for (const f of data.features || []) {
+    const p = f.properties || {};
+    const label = p.name ||
+      [p.street, p.housenumber].filter(Boolean).join(" ");
+    if (!label || !f.geometry) continue;
+    const sublabel = [p.city, p.state, p.country]
+      .filter((v) => v && v !== label)
+      .join(", ");
+    const key = `${label}|${sublabel}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      label,
+      sublabel,
+      lat: f.geometry.coordinates[1],
+      lon: f.geometry.coordinates[0],
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 // Be polite to Nominatim: at most ~1 reverse-geocode request per second.
@@ -294,7 +336,24 @@ async function getWeatherAt(lat, lon, whenUtc) {
 // ---- Trip orchestration (same response shape as the old /api/trip) ----
 
 /**
+ * Resolve a trip endpoint to coordinates. Accepts a place-name string (which
+ * is geocoded) or an already-resolved { lat, lon, display } object — e.g.
+ * from a picked autocomplete suggestion, which skips the geocoding call.
+ */
+async function resolvePlace(place) {
+  if (place && typeof place === "object" && place.lat != null) {
+    return {
+      lat: +place.lat,
+      lon: +place.lon,
+      display: place.display || `${place.lat}, ${place.lon}`,
+    };
+  }
+  return geocode(place);
+}
+
+/**
  * Plan a trip: geocode endpoints, route, sample stops, fetch timed forecasts.
+ * `from`/`to` are place names or { lat, lon, display } objects.
  * `onProgress(message)` is called with status updates along the way.
  */
 async function planTrip({ from, to, departUtc, intervalSeconds, onProgress = () => {} }) {
@@ -302,8 +361,8 @@ async function planTrip({ from, to, departUtc, intervalSeconds, onProgress = () 
   const interval = Math.max(900, intervalSeconds || 3600);
 
   onProgress("Finding locations…");
-  const start = await geocode(from);
-  const end = await geocode(to);
+  const start = await resolvePlace(from);
+  const end = await resolvePlace(to);
 
   onProgress("Calculating route…");
   const route = await getRouteOSRM(start, end);
@@ -327,8 +386,8 @@ async function planTrip({ from, to, departUtc, intervalSeconds, onProgress = () 
   }
 
   return {
-    origin: { query: from, display: start.display, lat: start.lat, lon: start.lon },
-    destination: { query: to, display: end.display, lat: end.lat, lon: end.lon },
+    origin: { display: start.display, lat: start.lat, lon: start.lon },
+    destination: { display: end.display, lat: end.lat, lon: end.lon },
     depart_utc: depart.toISOString(),
     distance_m: route.distance,
     duration_s: route.duration,

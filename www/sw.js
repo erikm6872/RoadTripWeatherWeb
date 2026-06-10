@@ -6,7 +6,7 @@
  * forecasts must be fresh to be useful.
  */
 
-const CACHE = "rtw-shell-v3";
+const CACHE = "rtw-shell-v4";
 
 const SHELL = [
   ".",
@@ -42,6 +42,7 @@ self.addEventListener("fetch", (e) => {
   // Data APIs and map tiles: always go to the network.
   const networkOnly = [
     "nominatim.openstreetmap.org",
+    "photon.komoot.io",
     "router.project-osrm.org",
     "api.open-meteo.com",
     "tile.openstreetmap.org",

@@ -18,6 +18,7 @@ host. That's also what makes it installable on Android and iOS.
 | Concern        | Service                                   |
 |----------------|-------------------------------------------|
 | Geocoding      | [Nominatim](https://nominatim.org/) (OpenStreetMap) |
+| Autocomplete   | [Photon](https://photon.komoot.io/) (OSM, built for search-as-you-type) |
 | Routing        | [OSRM](http://project-osrm.org/) public demo server |
 | Weather        | [Open-Meteo](https://open-meteo.com/) hourly forecast |
 | Map / tiles    | [Leaflet](https://leafletjs.com/) + OpenStreetMap tiles |

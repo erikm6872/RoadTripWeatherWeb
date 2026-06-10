@@ -41,6 +41,7 @@ form { display: flex; flex-direction: column; gap: 14px; }
 
 /* ---------- Field: rounded container with an inset label ---------- */
 .field {
+  position: relative; /* anchors the suggestions dropdown */
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid #2e3c52;
   border-radius: 14px;
@@ -77,6 +78,55 @@ form { display: flex; flex-direction: column; gap: 14px; }
 }
 .field input:focus { outline: none; }
 .field input::placeholder { color: #475569; }
+
+/* ---------- Autocomplete suggestions dropdown ---------- */
+.suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #1b2738;
+  border: 1px solid #2e3c52;
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  z-index: 1100; /* above the sticky map on mobile */
+}
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 13px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.suggestion + .suggestion { border-top: 1px solid rgba(46, 60, 82, 0.55); }
+.suggestion:hover, .suggestion.highlighted {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent);
+}
+.suggestion svg { flex: none; }
+.s-text { display: flex; flex-direction: column; min-width: 0; }
+.s-main {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-sub {
+  color: var(--muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---------- Start/destination group with route rail + swap ---------- */
 .route-box {
