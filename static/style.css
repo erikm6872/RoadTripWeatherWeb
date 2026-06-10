@@ -1,0 +1,296 @@
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --accent: #38bdf8;
+  --accent-2: #fbbf24;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+}
+
+body {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar {
+  width: 380px;
+  min-width: 380px;
+  background: var(--bg);
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid #334155;
+}
+
+#map { flex: 1; }
+
+h1 { font-size: 1.35rem; margin: 0 0 4px; }
+.tagline { color: var(--muted); margin: 0 0 18px; font-size: 0.9rem; }
+
+form { display: flex; flex-direction: column; gap: 12px; }
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input, select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+button#go {
+  margin-top: 4px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #082f49;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button#go:disabled { opacity: 0.5; cursor: progress; }
+button#go:hover:not(:disabled) { background: #7dd3fc; }
+
+#status {
+  margin: 16px 0;
+  font-size: 0.9rem;
+  color: var(--accent-2);
+  min-height: 1.2em;
+}
+#status.error { color: #f87171; }
+
+#summary {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+#summary strong { color: var(--text); }
+
+/* ---------- Extreme-weather / hazard alert banner ---------- */
+#alert:empty { display: none; }
+.alert {
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+.alert--hazard {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+.alert--extreme {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.65);
+  animation: hazardPulse 2.2s ease-in-out infinite;
+}
+@keyframes hazardPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.22); }
+}
+.alert-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
+.alert--hazard .alert-title { color: #fbbf24; }
+.alert--extreme .alert-title { color: #fca5a5; }
+.alert-list { display: flex; flex-direction: column; gap: 6px; }
+.alert-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.alert-item:hover { background: rgba(255, 255, 255, 0.1); }
+.alert-emoji { font-size: 1.1rem; line-height: 1.25; }
+.alert-text { font-size: 0.82rem; line-height: 1.35; }
+.alert-eta { color: var(--muted); font-size: 0.75rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .alert--extreme { animation: none; }
+}
+
+/* Trailing space (sized in JS) lets the last stops scroll up to the highlight
+   line so each gets its own active region while scrolling. */
+.stop {
+  background: var(--panel);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.stop:hover { border-color: var(--accent); transform: translateX(2px); }
+
+/* The stop currently scrolled into view (kept in sync with its map marker).
+   Uses a ring + left bar so it layers over any hazard border colour. */
+.stop.active {
+  background: #233247;
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 14px rgba(56, 189, 248, 0.25);
+}
+.stop.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+.stop { position: relative; }
+
+/* Hazardous-weather stop cards: tinted border + matching left bar. */
+.stop--hazard { border-color: #f59e0b; }
+.stop--extreme { border-color: #ef4444; }
+
+/* Hazard chips listing each individual threat. */
+.stop-hazards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.hz {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.hz--hazard {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+.hz--extreme {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.65);
+}
+
+.stop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.stop-name { font-weight: 600; }
+.stop-eta { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+.stop-weather {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.stop-emoji { font-size: 1.8rem; }
+.stop-temp { font-size: 1.4rem; font-weight: 700; }
+.stop-desc { font-size: 0.85rem; color: var(--muted); }
+.stop-detail { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+/* Leaflet marker labels */
+.wx-marker {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  transition: transform 0.2s ease, border-color 0.2s, box-shadow 0.2s;
+  transform-origin: center bottom;
+}
+
+/* Hazard-tinted markers (colour conveys severity even when not selected). */
+.wx-marker.wx-hazard { border-color: #f59e0b; background: #3a2b10; }
+.wx-marker.wx-extreme { border-color: #ef4444; background: #3a1414; }
+
+/* The marker matching the stop currently in view: enlarged + blue ring.
+   A ring (not a border override) keeps the hazard colour visible. */
+.wx-active .wx-marker {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.9), 0 4px 12px rgba(0, 0, 0, 0.55);
+  font-weight: 700;
+}
+.leaflet-popup-content { font-size: 0.9rem; }
+
+/* ---------- Mobile / narrow screens ---------- */
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  /* Map sits on top and stays visible while the list scrolls beneath it.
+     flex: 0 0 45vh overrides the desktop `flex: 1` (basis 0%), which would
+     otherwise collapse the map to 0 height once the list grows tall. */
+  #map {
+    order: -1;
+    width: 100%;
+    flex: 0 0 45vh;
+    height: 45vh;
+    position: sticky;
+    top: 0;
+    z-index: 500;
+  }
+
+  #sidebar {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-top: 1px solid #334155;
+    overflow-y: visible;
+    padding: 16px;
+  }
+
+  h1 { font-size: 1.25rem; }
+
+  /* Larger, comfortable touch targets on phones. */
+  input, select {
+    font-size: 16px; /* prevents iOS zoom-on-focus */
+    padding: 12px;
+  }
+  button#go { padding: 14px; }
+
+  .stop { padding: 14px; }
+}
+
+/* Very small phones: give the map a touch more room to breathe. */
+@media (max-width: 768px) and (max-height: 700px) {
+  #map { flex-basis: 38vh; height: 38vh; }
+}

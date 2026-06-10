@@ -1,0 +1,25 @@
+{
+  "name": "road-trip-weather",
+  "version": "1.0.0",
+  "description": "Road trip weather forecasts timed to your arrival, as an installable Android app.",
+  "private": true,
+  "scripts": {
+    "build": "python build_www.py",
+    "android:add": "npm run build && npx cap add android",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npm run android:sync && npx cap run android",
+    "ios:add": "npm run build && npx cap add ios",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run ios:sync && npx cap run ios"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/cli": "^6.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}

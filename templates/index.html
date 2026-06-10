@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TripWeather" />
+  <meta name="description" content="See the weather forecast for each town on your road trip, timed to when you'll be there." />
+  <title>Road Trip Weather</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="static/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="static/icons/icon-180.png" />
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
+  <link rel="stylesheet" href="static/style.css" />
+</head>
+<body>
+  <div id="sidebar">
+    <h1>🚗 Road Trip Weather</h1>
+    <p class="tagline">See the forecast for each town <em>when you'll be there.</em></p>
+
+    <form id="trip-form">
+      <label>Start
+        <input type="text" id="from" placeholder="e.g. Phoenix, AZ" required />
+      </label>
+      <label>Destination
+        <input type="text" id="to" placeholder="e.g. Albuquerque, NM" required />
+      </label>
+      <label>Departure
+        <input type="datetime-local" id="depart" />
+      </label>
+      <label>Weather stop every
+        <select id="interval">
+          <option value="1800">30 minutes</option>
+          <option value="3600" selected>1 hour</option>
+          <option value="7200">2 hours</option>
+          <option value="10800">3 hours</option>
+        </select>
+      </label>
+      <button type="submit" id="go">Plan trip</button>
+    </form>
+
+    <div id="status"></div>
+    <div id="summary"></div>
+    <div id="alert" role="alert" aria-live="assertive"></div>
+    <div id="stops"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="static/api.js"></script>
+  <script src="static/app.js"></script>
+  <script>
+    // Register the service worker (makes the app installable & shell-cached).
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {
+        /* non-fatal: app still works without offline support */
+      });
+    }
+  </script>
+</body>
+</html>

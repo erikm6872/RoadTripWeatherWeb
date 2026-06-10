@@ -1,0 +1,11 @@
+{
+  "appId": "com.roadtripweather.app",
+  "appName": "Road Trip Weather",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
