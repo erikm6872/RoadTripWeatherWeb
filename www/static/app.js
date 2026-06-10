@@ -32,6 +32,24 @@ const departInput = document.getElementById("depart");
   departInput.value = now.toISOString().slice(0, 16);
 })();
 
+// Swap start and destination.
+document.getElementById("swap").addEventListener("click", () => {
+  const fromEl = document.getElementById("from");
+  const toEl = document.getElementById("to");
+  [fromEl.value, toEl.value] = [toEl.value, fromEl.value];
+});
+
+// Segmented control for the weather-stop interval (backed by #interval).
+document.querySelectorAll("#interval-seg button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#interval-seg button").forEach((b) => {
+      b.classList.toggle("selected", b === btn);
+      b.setAttribute("aria-pressed", b === btn);
+    });
+    document.getElementById("interval").value = btn.dataset.value;
+  });
+});
+
 const form = document.getElementById("trip-form");
 const statusEl = document.getElementById("status");
 const summaryEl = document.getElementById("summary");

@@ -6,7 +6,7 @@
  * forecasts must be fresh to be useful.
  */
 
-const CACHE = "rtw-shell-v2";
+const CACHE = "rtw-shell-v3";
 
 const SHELL = [
   ".",

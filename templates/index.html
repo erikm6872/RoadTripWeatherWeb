@@ -24,24 +24,50 @@
     <h1>🚗 Road Trip Weather</h1>
     <p class="tagline">See the forecast for each town <em>when you'll be there.</em></p>
 
-    <form id="trip-form">
-      <label>Start
-        <input type="text" id="from" placeholder="e.g. Phoenix, AZ" required />
-      </label>
-      <label>Destination
-        <input type="text" id="to" placeholder="e.g. Albuquerque, NM" required />
-      </label>
-      <label>Departure
+    <form id="trip-form" autocomplete="off">
+      <div class="route-box">
+        <div class="route-rail" aria-hidden="true">
+          <span class="rail-dot rail-start"></span>
+          <span class="rail-line"></span>
+          <span class="rail-dot rail-end"></span>
+        </div>
+        <div class="route-inputs">
+          <div class="field">
+            <label for="from">Start</label>
+            <input type="text" id="from" placeholder="Phoenix, AZ" required />
+          </div>
+          <div class="field">
+            <label for="to">Destination</label>
+            <input type="text" id="to" placeholder="Albuquerque, NM" required />
+          </div>
+        </div>
+        <button type="button" id="swap" title="Swap start and destination"
+                aria-label="Swap start and destination">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M7 4v13M7 17l-3-3M7 17l3-3" />
+            <path d="M17 20V7M17 7l-3 3M17 7l3 3" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="depart">Departure</label>
         <input type="datetime-local" id="depart" />
-      </label>
-      <label>Weather stop every
-        <select id="interval">
-          <option value="1800">30 minutes</option>
-          <option value="3600" selected>1 hour</option>
-          <option value="7200">2 hours</option>
-          <option value="10800">3 hours</option>
-        </select>
-      </label>
+      </div>
+
+      <div class="interval-group" role="group" aria-label="Weather stop every">
+        <span class="interval-label">Weather stop every</span>
+        <div class="segmented" id="interval-seg">
+          <button type="button" data-value="1800">30 min</button>
+          <button type="button" data-value="3600" class="selected" aria-pressed="true">1 hr</button>
+          <button type="button" data-value="7200">2 hr</button>
+          <button type="button" data-value="10800">3 hr</button>
+        </div>
+        <input type="hidden" id="interval" value="3600" />
+      </div>
+
       <button type="submit" id="go">Plan trip</button>
     </form>
 

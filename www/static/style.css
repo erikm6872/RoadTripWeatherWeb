@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark; /* native pickers (datetime calendar etc.) render dark */
   --bg: #0f172a;
   --panel: #1e293b;
   --accent: #38bdf8;
@@ -36,46 +37,163 @@ body {
 h1 { font-size: 1.35rem; margin: 0 0 4px; }
 .tagline { color: var(--muted); margin: 0 0 18px; font-size: 0.9rem; }
 
-form { display: flex; flex-direction: column; gap: 12px; }
+form { display: flex; flex-direction: column; gap: 14px; }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
+/* ---------- Field: rounded container with an inset label ---------- */
+.field {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #2e3c52;
+  border-radius: 14px;
+  padding: 9px 14px 10px;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+.field:hover { border-color: #3e4f6b; }
+.field:focus-within {
+  border-color: var(--accent);
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.field label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  cursor: text;
 }
+.field:focus-within label { color: var(--accent); }
 
-input, select {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  background: var(--panel);
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-button#go {
-  margin-top: 4px;
-  padding: 12px;
+.field input {
+  display: block;
+  width: 100%;
   border: none;
-  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  padding: 0;
+}
+.field input:focus { outline: none; }
+.field input::placeholder { color: #475569; }
+
+/* ---------- Start/destination group with route rail + swap ---------- */
+.route-box {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.route-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 0 24px 2px;
+}
+.rail-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.rail-start { background: var(--accent); box-shadow: 0 0 6px rgba(56, 189, 248, 0.7); }
+.rail-end { background: var(--accent-2); box-shadow: 0 0 6px rgba(251, 191, 36, 0.6); }
+.rail-line {
+  flex: 1;
+  width: 0;
+  margin: 4px 0;
+  border-left: 2px dotted #475569;
+}
+
+.route-inputs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+#swap {
+  align-self: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #2e3c52;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, transform 0.25s ease;
+}
+#swap:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: rotate(180deg);
+}
+#swap:active { transform: rotate(180deg) scale(0.92); }
+
+/* ---------- Interval: segmented pill control ---------- */
+.interval-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #2e3c52;
+  border-radius: 12px;
+  padding: 4px;
+}
+.segmented button {
+  border: none;
+  border-radius: 9px;
+  padding: 8px 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.segmented button:hover { color: var(--text); }
+.segmented button.selected {
   background: var(--accent);
   color: #082f49;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
 }
 
-button#go:disabled { opacity: 0.5; cursor: progress; }
-button#go:hover:not(:disabled) { background: #7dd3fc; }
+/* ---------- Submit button ---------- */
+button#go {
+  margin-top: 2px;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+  color: #f0f9ff;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s;
+}
+button#go:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  transform: translateY(-1px);
+}
+button#go:active:not(:disabled) { transform: translateY(0); }
+button#go:disabled { opacity: 0.55; cursor: progress; }
 
 #status {
   margin: 16px 0;
@@ -281,11 +399,12 @@ button#go:hover:not(:disabled) { background: #7dd3fc; }
   h1 { font-size: 1.25rem; }
 
   /* Larger, comfortable touch targets on phones. */
-  input, select {
+  .field input {
     font-size: 16px; /* prevents iOS zoom-on-focus */
-    padding: 12px;
   }
-  button#go { padding: 14px; }
+  .field { padding: 11px 14px 12px; }
+  .segmented button { padding: 10px 4px; }
+  button#go { padding: 15px; }
 
   .stop { padding: 14px; }
 }
