@@ -79,6 +79,39 @@ form { display: flex; flex-direction: column; gap: 14px; }
 .field input:focus { outline: none; }
 .field input::placeholder { color: #475569; }
 
+/* ---------- "Use my location" button (Start field, mobile only) ---------- */
+.locate-btn {
+  display: none; /* shown on mobile via media query (see below) */
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.locate-btn:hover { background: rgba(56, 189, 248, 0.14); }
+.locate-btn:active { background: rgba(56, 189, 248, 0.24); }
+.locate-btn:disabled { cursor: progress; }
+/* Spinner shown while waiting for a GPS fix. */
+.locate-btn.locating svg { display: none; }
+.locate-btn.locating::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(56, 189, 248, 0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---------- Autocomplete suggestions dropdown ---------- */
 .suggestions {
   position: absolute;
@@ -455,6 +488,10 @@ button#go:disabled { opacity: 0.55; cursor: progress; }
   .field { padding: 11px 14px 12px; }
   .segmented button { padding: 10px 4px; }
   button#go { padding: 15px; }
+
+  /* GPS auto-locate is offered on mobile, where it's most useful. */
+  .locate-btn { display: grid; }
+  #from-field input { padding-right: 38px; }
 
   .stop { padding: 14px; }
 }
