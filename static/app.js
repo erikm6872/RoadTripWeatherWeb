@@ -151,6 +151,53 @@ document.getElementById("swap").addEventListener("click", () => {
   }
 });
 
+// ---- GPS auto-locate for the start point ----
+
+const locateBtn = document.getElementById("locate");
+
+// Remove the button entirely if geolocation isn't available (e.g. an insecure
+// context), so it never offers something that can't work.
+if (!("geolocation" in navigator)) {
+  locateBtn.remove();
+} else {
+  locateBtn.addEventListener("click", () => {
+    const fromEl = document.getElementById("from");
+    locateBtn.classList.add("locating");
+    locateBtn.disabled = true;
+    setStatus("Getting your location…");
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        // Use the precise GPS coordinates as the start; label them with the
+        // nearest place name so the field reads sensibly.
+        let label = "My location";
+        try {
+          label = await reverseGeocode(latitude, longitude);
+        } catch { /* keep the generic label if reverse geocoding fails */ }
+        fromEl.value = label;
+        fromEl.dataset.lat = latitude;
+        fromEl.dataset.lon = longitude;
+        fromEl.dataset.display = label;
+        locateBtn.classList.remove("locating");
+        locateBtn.disabled = false;
+        setStatus("");
+      },
+      (err) => {
+        locateBtn.classList.remove("locating");
+        locateBtn.disabled = false;
+        const messages = {
+          1: "Location permission denied — enter a start manually.",
+          2: "Your location is unavailable right now.",
+          3: "Getting your location timed out — try again.",
+        };
+        setStatus(messages[err.code] || "Couldn't get your location.", true);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+}
+
 // Segmented control for the weather-stop interval (backed by #interval).
 document.querySelectorAll("#interval-seg button").forEach((btn) => {
   btn.addEventListener("click", () => {

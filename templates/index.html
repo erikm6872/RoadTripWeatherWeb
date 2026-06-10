@@ -32,9 +32,19 @@
           <span class="rail-dot rail-end"></span>
         </div>
         <div class="route-inputs">
-          <div class="field">
+          <div class="field" id="from-field">
             <label for="from">Start</label>
             <input type="text" id="from" placeholder="Phoenix, AZ" required />
+            <button type="button" id="locate" class="locate-btn"
+                    title="Use my current location"
+                    aria-label="Use my current location">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                   stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.5" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+              </svg>
+            </button>
           </div>
           <div class="field">
             <label for="to">Destination</label>
