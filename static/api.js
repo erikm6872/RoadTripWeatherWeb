@@ -114,10 +114,34 @@ function assessHazards({ weathercode, apparentTemperature, temperature, windSpee
 
 class ServiceError extends Error {}
 
-async function getJSON(url) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function getJSON(url, retries = 2) {
   const resp = await fetch(url);
-  if (!resp.ok) throw new ServiceError(`Service error (${resp.status}) from ${new URL(url).host}.`);
-  return resp.json();
+  if (resp.ok) return resp.json();
+  // Back off and retry on rate-limit / transient overload (e.g. Open-Meteo
+  // 429 when checking several routes at once).
+  if ((resp.status === 429 || resp.status === 503) && retries > 0) {
+    await sleep(1200);
+    return getJSON(url, retries - 1);
+  }
+  throw new ServiceError(`Service error (${resp.status}) from ${new URL(url).host}.`);
+}
+
+/** Run `fn` over `items` with at most `limit` in flight; preserves order. */
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  );
+  return results;
 }
 
 // ---- Geocoding (Nominatim) ----
@@ -209,37 +233,41 @@ async function reverseGeocode(lat, lon) {
 // ---- Routing (OSRM) ----
 
 /**
- * Fetch a driving route. Returns { coords: [[lat,lon]…], cumTime: [s…],
- * distance: m, duration: s } with cumTime aligned to coords.
+ * Fetch driving routes from OSRM, including alternatives. Returns an array of
+ * { coords: [[lat,lon]…], cumTime: [s…], distance: m, duration: s }, with the
+ * fastest/recommended route first. `maxAlternatives` is how many extra routes
+ * to ask OSRM to find (it may return fewer, or none).
  */
-async function getRouteOSRM(start, end) {
+async function getRoutesOSRM(start, end, maxAlternatives = 3) {
   // OSRM expects lon,lat ordering.
   const coordStr = `${start.lon},${start.lat};${end.lon},${end.lat}`;
   const u = `${OSRM}/route/v1/driving/${coordStr}?` + new URLSearchParams({
-    overview: "full", geometries: "geojson", annotations: "duration",
+    overview: "full",
+    geometries: "geojson",
+    annotations: "duration",
+    alternatives: String(maxAlternatives),
   });
   const data = await getJSON(u);
   if (data.code !== "Ok" || !data.routes?.length) {
     throw new ServiceError("No driving route could be found between those points.");
   }
 
-  const route = data.routes[0];
-  // geometry coordinates are [lon, lat]; flip to [lat, lon] for Leaflet.
-  let coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
-
-  const cumTime = [0];
-  for (const leg of route.legs) {
-    for (const seg of leg.annotation.duration) {
-      cumTime.push(cumTime[cumTime.length - 1] + seg);
+  return data.routes.map((route) => {
+    // geometry coordinates are [lon, lat]; flip to [lat, lon] for Leaflet.
+    let coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+    const cumTime = [0];
+    for (const leg of route.legs) {
+      for (const seg of leg.annotation.duration) {
+        cumTime.push(cumTime[cumTime.length - 1] + seg);
+      }
     }
-  }
-  if (cumTime.length !== coords.length) {
-    const n = Math.min(cumTime.length, coords.length);
-    coords = coords.slice(0, n);
-    cumTime.length = n;
-  }
-
-  return { coords, cumTime, distance: route.distance, duration: route.duration };
+    if (cumTime.length !== coords.length) {
+      const n = Math.min(cumTime.length, coords.length);
+      coords = coords.slice(0, n);
+      cumTime.length = n;
+    }
+    return { coords, cumTime, distance: route.distance, duration: route.duration };
+  });
 }
 
 // ---- Waypoint sampling ----
@@ -358,8 +386,57 @@ async function resolvePlace(place) {
   return geocode(place);
 }
 
+/** Weighted hazard summary for a route's waypoints (extreme counts more). */
+function summarizeHazard(waypoints) {
+  let score = 0, hazardCount = 0, extremeCount = 0, worst = "none";
+  for (const wp of waypoints) {
+    const s = wp.weather.severity;
+    if (s === "extreme") { score += 3; extremeCount++; worst = "extreme"; }
+    else if (s === "hazard") { score += 1; hazardCount++; if (worst === "none") worst = "hazard"; }
+  }
+  return { score, hazardCount, extremeCount, worst };
+}
+
+/** Assemble a route object from its samples and already-fetched weather. */
+function buildRoute(raw, samples, weathers, depart) {
+  const waypoints = samples.map((s, i) => ({
+    name: null, // filled in lazily by nameWaypoints when the route is shown
+    lat: s.lat,
+    lon: s.lon,
+    drive_seconds: s.driveSeconds,
+    arrival_utc: new Date(depart.getTime() + s.driveSeconds * 1000).toISOString(),
+    weather: weathers[i],
+  }));
+  return {
+    distance_m: raw.distance,
+    duration_s: raw.duration,
+    geometry: raw.coords,
+    waypoints,
+    hazard: summarizeHazard(waypoints),
+    named: false,
+  };
+}
+
 /**
- * Plan a trip: geocode endpoints, route, sample stops, fetch timed forecasts.
+ * Reverse-geocode any unnamed waypoints in place. Sequential, to respect the
+ * Nominatim rate limit. Called for a route only when it's first displayed.
+ */
+async function nameWaypoints(waypoints, onProgress = () => {}) {
+  for (let i = 0; i < waypoints.length; i++) {
+    if (waypoints[i].name) continue;
+    onProgress(`Naming stops… (${i + 1}/${waypoints.length})`);
+    waypoints[i].name = await reverseGeocode(waypoints[i].lat, waypoints[i].lon);
+  }
+}
+
+/**
+ * Plan a trip with weather-aware routing.
+ *
+ * Fetches the fastest route plus alternatives, checks the forecast along each,
+ * and — if the fastest route has hazardous weather — suggests the safer
+ * alternative whose ETA is closest to the original. Returns all offered routes
+ * so the UI can let the user pick.
+ *
  * `from`/`to` are place names or { lat, lon, display } objects.
  * `onProgress(message)` is called with status updates along the way.
  */
@@ -371,34 +448,63 @@ async function planTrip({ from, to, departUtc, intervalSeconds, onProgress = () 
   const start = await resolvePlace(from);
   const end = await resolvePlace(to);
 
-  onProgress("Calculating route…");
-  const route = await getRouteOSRM(start, end);
-  const samples = samplePoints(route, interval);
+  onProgress("Calculating routes…");
+  const raws = await getRoutesOSRM(start, end, 3);
 
-  const waypoints = [];
-  for (let i = 0; i < samples.length; i++) {
-    const s = samples[i];
-    onProgress(`Fetching forecasts… (${i + 1}/${samples.length})`);
-    const arrival = new Date(depart.getTime() + s.driveSeconds * 1000);
-    const name = await reverseGeocode(s.lat, s.lon);
-    const weather = await getWeatherAt(s.lat, s.lon, arrival);
-    waypoints.push({
-      name,
-      lat: s.lat,
-      lon: s.lon,
-      drive_seconds: s.driveSeconds,
-      arrival_utc: arrival.toISOString(),
-      weather,
-    });
+  onProgress("Checking weather along each route…");
+  // Sample every route, then fetch all forecasts through a shared concurrency
+  // limit so checking several routes at once doesn't trip Open-Meteo's rate
+  // limit (the lookups are bursty otherwise).
+  const sampledRoutes = raws.map((r) => samplePoints(r, interval));
+  const tasks = [];
+  sampledRoutes.forEach((samples, ri) =>
+    samples.forEach((s, si) => tasks.push({ ri, si, s })));
+  const taskWeather = await mapLimit(tasks, 5, ({ s }) =>
+    getWeatherAt(s.lat, s.lon, new Date(depart.getTime() + s.driveSeconds * 1000)));
+  const weatherByRoute = sampledRoutes.map((s) => new Array(s.length));
+  tasks.forEach((t, k) => { weatherByRoute[t.ri][t.si] = taskWeather[k]; });
+
+  const built = raws.map((raw, ri) =>
+    buildRoute(raw, sampledRoutes[ri], weatherByRoute[ri], depart));
+
+  const fastest = built[0];
+  fastest.kind = "fastest";
+  const routes = [fastest];
+
+  // If the fastest route is hazardous, offer the safest alternative whose ETA
+  // is closest to it (the new route should match the original ETA as nearly
+  // as possible while strictly reducing the weather hazard).
+  if (fastest.hazard.score > 0 && built.length > 1) {
+    const safer = built
+      .slice(1)
+      .filter((r) => r.hazard.score < fastest.hazard.score)
+      .sort((a, b) =>
+        Math.abs(a.duration_s - fastest.duration_s) -
+          Math.abs(b.duration_s - fastest.duration_s) ||
+        a.hazard.score - b.hazard.score)[0];
+    if (safer) {
+      safer.kind = "alternate";
+      safer.recommended = true;
+      routes.push(safer);
+    }
   }
+
+  routes.forEach((r, i) => {
+    r.id = i;
+    r.etaDeltaSeconds = r.duration_s - fastest.duration_s;
+  });
+
+  // Default to the original (fastest) route; name its stops now. The user can
+  // switch to the suggested route, which gets named on demand.
+  const selectedIndex = 0;
+  await nameWaypoints(routes[selectedIndex].waypoints, onProgress);
+  routes[selectedIndex].named = true;
 
   return {
     origin: { display: start.display, lat: start.lat, lon: start.lon },
     destination: { display: end.display, lat: end.lat, lon: end.lon },
     depart_utc: depart.toISOString(),
-    distance_m: route.distance,
-    duration_s: route.duration,
-    geometry: route.coords,
-    waypoints,
+    routes,
+    selectedIndex,
   };
 }

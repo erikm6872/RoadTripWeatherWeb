@@ -293,6 +293,76 @@ button#go:disabled { opacity: 0.55; cursor: progress; }
 }
 #summary strong { color: var(--text); }
 
+/* ---------- Weather-aware route picker ---------- */
+#routes:empty { display: none; }
+.route-suggest {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+  padding: 9px 11px;
+  margin-bottom: 10px;
+}
+.route-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.route-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #2e3c52;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.route-opt:hover { border-color: #3e4f6b; }
+.route-opt.selected {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.route-opt-top, .route-opt-bot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.route-opt-name { font-weight: 600; font-size: 0.95rem; }
+.route-opt-dur { font-weight: 700; font-size: 0.95rem; }
+.route-opt-delta { font-size: 0.78rem; color: var(--muted); }
+.route-rec {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.18);
+  border-radius: 6px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.route-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+.route-badge--clear { color: #6ee7b7; background: rgba(16, 185, 129, 0.16); }
+.route-badge--hazard { color: #fbbf24; background: rgba(245, 158, 11, 0.18); }
+.route-badge--extreme { color: #fca5a5; background: rgba(239, 68, 68, 0.2); }
+
 /* ---------- Extreme-weather / hazard alert banner ---------- */
 #alert:empty { display: none; }
 .alert {
