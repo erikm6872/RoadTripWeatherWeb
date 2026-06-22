@@ -144,8 +144,15 @@ async function suggestPlaces(query, limit = 5, bias = null) {
   });
   if (bias) {
     // Rank results near this point higher (e.g. the current map view).
-    params.set("lat", bias.lat);
-    params.set("lon", bias.lon);
+    // Accept both {lat, lon} and Leaflet's {lat, lng}; skip if either is
+    // missing so a malformed bias degrades to unbiased results rather than
+    // sending lat/lon=undefined (which Photon rejects with a 400).
+    const lat = bias.lat;
+    const lon = bias.lon != null ? bias.lon : bias.lng;
+    if (lat != null && lon != null) {
+      params.set("lat", lat);
+      params.set("lon", lon);
+    }
   }
   const data = await getJSON(PHOTON + "?" + params);
 
