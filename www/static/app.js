@@ -6,9 +6,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap contributors",
 }).addTo(map);
 
-let routeLayer = null;
+let routeLayers = [];            // one Leaflet polyline per offered route
 let markerLayer = L.layerGroup().addTo(map);
 const markersByIndex = {};
+let currentTrip = null;          // the planTrip() result currently displayed
+let selectedRouteIndex = 0;      // which route's details are shown
 
 // Keep the map sized correctly when the viewport changes (e.g. rotating a
 // phone, or the address bar showing/hiding), which avoids gray tile gaps.
@@ -211,6 +213,7 @@ document.querySelectorAll("#interval-seg button").forEach((btn) => {
 
 const form = document.getElementById("trip-form");
 const statusEl = document.getElementById("status");
+const routesEl = document.getElementById("routes");
 const summaryEl = document.getElementById("summary");
 const alertEl = document.getElementById("alert");
 const stopsEl = document.getElementById("stops");
@@ -240,6 +243,7 @@ form.addEventListener("submit", async (e) => {
 
   setStatus("Planning your trip… this can take a few seconds.");
   goBtn.disabled = true;
+  routesEl.innerHTML = "";
   summaryEl.innerHTML = "";
   alertEl.innerHTML = "";
   stopsEl.innerHTML = "";
@@ -267,29 +271,143 @@ function setStatus(msg, isError = false) {
 }
 
 function render(data) {
+  currentTrip = data;
+
   // Clear previous trip (idempotent: safe to call repeatedly).
-  if (routeLayer) map.removeLayer(routeLayer);
+  routeLayers.forEach((l) => map.removeLayer(l));
+  routeLayers = [];
+  markerLayer.clearLayers();
+  for (const k in markersByIndex) delete markersByIndex[k];
+  routesEl.innerHTML = "";
+  summaryEl.innerHTML = "";
+  alertEl.innerHTML = "";
+  stopsEl.innerHTML = "";
+
+  // Draw every offered route; the selected one is highlighted, others are
+  // faint and clickable to switch.
+  data.routes.forEach((route, i) => {
+    const layer = L.polyline(route.geometry, routeStyle(i, data.selectedIndex))
+      .addTo(map);
+    layer.on("click", () => selectRoute(i));
+    routeLayers.push(layer);
+  });
+  map.fitBounds(L.featureGroup(routeLayers).getBounds(), { padding: [40, 40] });
+
+  // Route picker (only when there's more than one option to choose from).
+  renderRouteOptions(data);
+
+  // Show the default-selected route's details.
+  selectRoute(data.selectedIndex);
+}
+
+/** Leaflet style for a route polyline given the current selection. */
+function routeStyle(index, selectedIndex) {
+  return index === selectedIndex
+    ? { color: "#38bdf8", weight: 6, opacity: 0.95 }
+    : { color: "#64748b", weight: 5, opacity: 0.5, dashArray: "6 8" };
+}
+
+/** Human-readable hours/minutes for a duration in seconds. */
+function fmtDuration(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.round((s % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** A coloured hazard badge summarising a route's weather. */
+function hazardBadge(hazard) {
+  if (hazard.extremeCount > 0) {
+    const n = hazard.extremeCount + hazard.hazardCount;
+    return `<span class="route-badge route-badge--extreme">⚠️ ${n} hazard${n > 1 ? "s" : ""}</span>`;
+  }
+  if (hazard.hazardCount > 0) {
+    return `<span class="route-badge route-badge--hazard">⚠️ ${hazard.hazardCount} hazard${hazard.hazardCount > 1 ? "s" : ""}</span>`;
+  }
+  return `<span class="route-badge route-badge--clear">✓ Clear</span>`;
+}
+
+/** Render the route-picker cards + a one-line suggestion, when applicable. */
+function renderRouteOptions(data) {
+  if (data.routes.length < 2) { routesEl.innerHTML = ""; return; }
+
+  const suggestion =
+    `<div class="route-suggest">⚠️ Hazardous weather on the fastest route — ` +
+    `a safer route with a similar arrival time is suggested.</div>`;
+
+  const cards = data.routes.map((r, i) => {
+    const miles = (r.distance_m / 1609.34).toFixed(0);
+    const delta = Math.round(r.etaDeltaSeconds / 60);
+    const deltaStr = i === 0
+      ? "fastest"
+      : delta > 0 ? `+${delta} min` : delta < 0 ? `${delta} min` : "same ETA";
+    const name = r.kind === "fastest" ? "Fastest" : "Safer route";
+    const rec = r.recommended ? ` <span class="route-rec">Recommended</span>` : "";
+    return `<button class="route-opt${i === data.selectedIndex ? " selected" : ""}" data-index="${i}">
+        <div class="route-opt-top">
+          <span class="route-opt-name">${name}${rec}</span>
+          <span class="route-opt-dur">${fmtDuration(r.duration_s)}</span>
+        </div>
+        <div class="route-opt-bot">
+          ${hazardBadge(r.hazard)}
+          <span class="route-opt-delta">${deltaStr} · ${miles} mi</span>
+        </div>
+      </button>`;
+  }).join("");
+
+  routesEl.innerHTML = suggestion + `<div class="route-options">${cards}</div>`;
+  routesEl.querySelectorAll(".route-opt").forEach((btn) =>
+    btn.addEventListener("click", () => selectRoute(Number(btn.dataset.index))));
+}
+
+/**
+ * Switch to route `index`: restyle the map lines, update the picker, name the
+ * route's stops if needed (lazily), then render its details.
+ */
+async function selectRoute(index) {
+  if (!currentTrip) return;
+  selectedRouteIndex = index;
+
+  routeLayers.forEach((layer, i) => {
+    layer.setStyle(routeStyle(i, index));
+    if (i === index) layer.bringToFront();
+  });
+  routesEl.querySelectorAll(".route-opt").forEach((b) =>
+    b.classList.toggle("selected", Number(b.dataset.index) === index));
+
+  const route = currentTrip.routes[index];
+
+  // Reverse-geocode this route's stops the first time it's shown.
+  if (!route.named) {
+    setStatus("Naming stops on this route…");
+    try {
+      await nameWaypoints(route.waypoints, setStatus);
+      route.named = true;
+    } catch { /* fall back to coordinate labels already set by nameWaypoints */ }
+    setStatus("");
+    // The user may have switched routes while we were naming this one.
+    if (selectedRouteIndex !== index) return;
+  }
+
+  renderSelectedRoute(route);
+}
+
+/** Render the markers, summary, stop cards, alert and scroll-sync for a route. */
+function renderSelectedRoute(route) {
   markerLayer.clearLayers();
   for (const k in markersByIndex) delete markersByIndex[k];
   stopsEl.innerHTML = "";
   alertEl.innerHTML = "";
 
-  // Draw the route line.
-  routeLayer = L.polyline(data.geometry, {
-    color: "#38bdf8", weight: 5, opacity: 0.85,
-  }).addTo(map);
-  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
-
   // Summary.
-  const miles = (data.distance_m / 1609.34).toFixed(0);
-  const hrs = Math.floor(data.duration_s / 3600);
-  const mins = Math.round((data.duration_s % 3600) / 60);
+  const miles = (route.distance_m / 1609.34).toFixed(0);
+  const hrs = Math.floor(route.duration_s / 3600);
+  const mins = Math.round((route.duration_s % 3600) / 60);
   summaryEl.innerHTML =
     `<strong>${miles} mi</strong> · ${hrs}h ${mins}m driving · ` +
-    `${data.waypoints.length} weather stops`;
+    `${route.waypoints.length} weather stops`;
 
   // Weather markers + sidebar cards.
-  data.waypoints.forEach((wp, i) => {
+  route.waypoints.forEach((wp, i) => {
     const w = wp.weather;
     const eta = new Date(wp.arrival_utc);
     const etaStr = eta.toLocaleString([], {
@@ -335,7 +453,7 @@ function render(data) {
   });
 
   // Surface any hazardous / extreme-weather threats along the route.
-  renderAlert(data.waypoints);
+  renderAlert(route.waypoints);
 
   // Highlight the first stop; scrolling updates which one is active.
   adjustStopsPadding();
@@ -363,7 +481,7 @@ function renderAlert(waypoints) {
   const flagged = waypoints
     .map((wp, i) => ({ wp, i }))
     .filter((x) => x.wp.weather.severity !== "none");
-  if (!flagged.length) { alertEl.innerHTML = ""; return; }
+  if (!flagged.length) { alertEl.className = ""; alertEl.innerHTML = ""; return; }
 
   const hasExtreme = flagged.some((x) => x.wp.weather.severity === "extreme");
   const level = hasExtreme ? "extreme" : "hazard";
