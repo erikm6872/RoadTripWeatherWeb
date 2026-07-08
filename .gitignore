@@ -7,6 +7,11 @@ android/
 # Python
 __pycache__/
 *.pyc
+.venv/
+.pytest_cache/
+
+# Test output
+coverage/
 
 # Obsidian local workspace state (not shared across machines)
 docs/.obsidian/

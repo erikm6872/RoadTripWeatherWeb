@@ -508,3 +508,30 @@ async function planTrip({ from, to, departUtc, intervalSeconds, onProgress = () 
     selectedIndex,
   };
 }
+
+// ---- Test-only export shim ----
+//
+// This file is loaded as a plain classic <script> in the browser, where
+// `module` is undefined, so this block is inert there. Under Node (test
+// runners), it exposes the internals below so they can be unit/integration
+// tested directly instead of only through the DOM.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    describeWeather,
+    assessHazards,
+    ServiceError,
+    getJSON,
+    mapLimit,
+    geocode,
+    suggestPlaces,
+    reverseGeocode,
+    getRoutesOSRM,
+    samplePoints,
+    getWeatherAt,
+    resolvePlace,
+    summarizeHazard,
+    buildRoute,
+    nameWaypoints,
+    planTrip,
+  };
+}
