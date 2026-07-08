@@ -15,3 +15,16 @@ usage, and changed limitations should all be reflected there. Use
 
 `docs/.obsidian/` is local Obsidian workspace state and is gitignored —
 never commit it.
+
+## Keep the test suite in sync
+
+There's a real test suite under `tests/` (Vitest for `static/api.js` /
+`static/app.js`, pytest for the legacy Flask backend — see
+[docs/Testing.md](docs/Testing.md)) and it runs in CI on every PR
+(`.github/workflows/tests.yml`). **Whenever you change behavior in
+`static/api.js`, `static/app.js`, `app.py`, `services.py`, or
+`weather_codes.py`, update the tests in the same change**: add coverage for
+new logic, update assertions that a deliberate behavior change makes
+outdated, and add a regression test for any bug fix. Run `npm test` and
+`pytest` (or `.venv/bin/pytest`) before considering a change done — don't
+leave the suite red or stale.
