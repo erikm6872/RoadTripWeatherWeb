@@ -24,6 +24,20 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 `requirements-dev.txt` includes `requirements.txt` plus `pytest`. `.venv/`
 and `node_modules/` are gitignored — each machine sets these up locally.
 
+## Continuous integration
+
+`.github/workflows/tests.yml` (separate from
+[[GitHub-Pages-Deploy|the Pages deploy workflow]]) runs both suites on
+every pull request and on every push to `master`, as two independent
+jobs — `js` (`npm ci` + `npm test`) and `python` (`pip install -r
+requirements-dev.txt` + `pytest`) — so a JS-only or Python-only failure is
+easy to tell apart in the PR checks list. Both jobs run on `ubuntu-latest`
+with dependency caching (`actions/setup-node`'s `cache: npm` keyed off
+`package-lock.json`; `actions/setup-python`'s `cache: pip` keyed off
+`requirements-dev.txt`). There's no merge gate configured in the repo
+itself (branch protection) — a red check on a PR doesn't currently block
+merging, it's just visible.
+
 ## Layout
 
 ```
