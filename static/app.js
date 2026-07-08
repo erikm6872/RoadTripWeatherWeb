@@ -674,3 +674,35 @@ function escapeHtml(s) {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
 }
+
+// ---- Test-only export shim ----
+//
+// Inert in the browser (`module` is undefined there). Exposes DOM-bound
+// internals for testing under a jsdom + stubbed-Leaflet environment, and the
+// pure formatting helpers for plain unit tests. See docs/Testing.md.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    fmtDuration,
+    hazardBadge,
+    routeStyle,
+    detailLine,
+    popupHtml,
+    escapeHtml,
+    hazardChips,
+    isMobile,
+    getScroller,
+    listTopY,
+    zoneLineY,
+    setActive,
+    updateActiveFromScroll,
+    adjustStopsPadding,
+    render,
+    selectRoute,
+    // Internal state, exposed for assertions only.
+    _internal: {
+      get activeIndex() { return activeIndex; },
+      get markersByIndex() { return markersByIndex; },
+      get currentTrip() { return currentTrip; },
+    },
+  };
+}

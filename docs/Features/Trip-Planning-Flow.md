@@ -54,15 +54,21 @@ return { origin, destination, depart_utc, routes, selectedIndex }
 seconds per coordinate, from OSRM's per-segment durations — see [[OSRM]]),
 picks points roughly every `intervalSeconds`:
 
-- Always includes the origin (t=0) and destination (t=total).
+- Always includes the origin (t=0) and destination (t=total) — **with one
+  edge case**: if the drive is much shorter than half the interval (e.g. a
+  5-minute trip with the default 1-hour interval), the origin sample gets
+  popped and replaced by the destination sample (see below), so a very short
+  trip can end up with only *one* weather stop, not an origin+destination
+  pair. Locked in by a regression test — see [[Testing]].
 - If the naive interval would produce more than `maxPoints` (default 12)
   stops, the interval is **widened** so the point count stays ≤ 12 — this
   caps how many Open-Meteo calls one trip can trigger, regardless of how
   long the drive is or how short an interval the user picked.
 - Drops a stop that lands closer than half the (possibly widened) interval
-  to the previous one — except the destination, which always replaces a
+  to the previous one — except the destination, which always **replaces** a
   too-close predecessor rather than being dropped, so the trip always ends
-  on the actual destination's forecast.
+  on the actual destination's forecast. When the predecessor being replaced
+  is the origin itself, this is the edge case above.
 
 ## Why routes are built in parallel, not one at a time
 

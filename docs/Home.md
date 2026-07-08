@@ -42,5 +42,6 @@ it to an existing vault. Everything below is a wikilink — click through.
 
 ## Reference
 
+- [[Testing]] — how the test suite (unit/integration/regression, JS + Python) is set up and run
 - [[Limitations-and-Risks]] — rate limits, demo-server caveats, what's not tested
 - [[Glossary]] — WMO weather codes, hazard severity tiers, terms used throughout
