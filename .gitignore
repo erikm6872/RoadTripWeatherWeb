@@ -7,3 +7,6 @@ android/
 # Python
 __pycache__/
 *.pyc
+
+# Obsidian local workspace state (not shared across machines)
+docs/.obsidian/
